@@ -1,41 +1,41 @@
-import os.path
+import os
 import pandas as pd
 
 #global variable
-workflow = "all"
+WORKFLOW = "all"
+
+#create assembly workflow options
+if WORKFLOW == "all":
+	assembly_type = "all"
+	CHECKFILE = ["megahitassembly", "idbaassembly", "megahitbinned", "idbabinned"]
+
+elif WORKFLOW in ["Megahit", "megahit"]:
+	assembly_type = "megahit"
+	CHECKFILE = ["megahitassembly", "megahitbinned"]
+
+elif WORKFLOW in ["IDBA_UD", "IDBA", "idba", "idba_ud"]:
+	assembly_type = "idba"
+	CHECKFILE = ["idbaassembly", "idbabinned"]
 
 #create rule all sample variable
 rawfiles = os.listdir("RawData_renamed")
-SAMPLES = [x for x in rawfiles if "R1" in x]
-
-#create assembly workflow options
-CHECKFILE = []
-if workflow == "all":
-	assembly_type = "all"
-	CHECKFILE = CHECKFILE + ["megahitassembly", "idbaassembly", "megahitbinned", "idbabinned"]
-
-if workflow == "Megahit" | workflow == "megahit":
-	assembly_type = "megahit"
-	CHECKFILE = CHECKFILE + ["megahitassembly", "megahitbinned"]
-
-if workflow in ["IDBA_UD", "IDBA", "idba", "idba_ud"]:
-	assembly_type = "idba"
-	CHECKFILE = CHECKFILE + ["idbaassembly", "idbabinned"]
+R1_files = [x for x in rawfiles if "R1" in x]
+SAMPLES = [x.replace("_R1.fastq.gz", "") for x in R1_files]
 
 
-rule run_all:
+# rule all:
+# 	input:
+# 		expand("{sample}_{pair}.fastq.gz", sample=SAMPLES, pair=['R1', 'R2'])
+
+
+rule do_all:
   input:
     expand("outfiles/{sample}{checkfile}.out", sample=SAMPLES, checkfile=CHECKFILE)
-  output:
-    "run.out"
+  output: 
+  	"run.out"
   shell:
     "cat {input} > {output}"
-
-rule all:
-	input:
-		expand("{sample}_{pair}.fastq.gz", sample=samples, pair=['R1', 'R2'])
 		
-
 rule qc:
 	input:
 		read_1="RawData_renamed/{sample}_R1.fastq.gz",
@@ -106,7 +106,7 @@ rule assemble_samples:
 			shell("touch {output.output_file_idba}")
 
 
-rule sortedbam__samples:
+rule sortedbam_samples:
 	input:
 		scaff2500_megahit=rules.assemble_samples.output.scaff2500_megahit,
 		scaff2500_idba=rules.assemble_samples.output.scaff2500_idba,
@@ -162,8 +162,8 @@ rule bin_samples:
 		bam_megahit=rules.sortedbam_samples.output.mapped_bam_megahit,
 		bam_idba=rules.sortedbam_samples.output.mapped_bam_idba
 	output:
-		bin_dir_megahit=directory("Assemblies/{sample}/Megahit/scaffold_2500.fa.metabat-bins"),
-		bin_dir_idba=directory("Assemblies/{sample}/IDBA_UD/scaffold_2500.fa.metabat-bins"),
+		bin_dir_megahit="Assemblies/{sample}/Megahit/scaffold_2500.fa.metabat-bins",
+		bin_dir_idba="Assemblies/{sample}/IDBA_UD/scaffold_2500.fa.metabat-bins",
 		output_file_megahit="outfiles/{sample}megahitbinned.out",
 		output_file_idba="outfiles/{sample}idbabinned.out"
 	params:
@@ -285,8 +285,11 @@ rule MQHQ_bins:
 	output:
 		output_file_megahit="outfiles/{sample}megahitMQHQ.out",
 		output_file_idba="outfiles/{sample}idbaMQHQ.out"
-	run:
+	shell:
+		"""
+		mkdir {params.checkM_dir_megahit}
 
+		"""
 
 
 
