@@ -264,33 +264,16 @@ rule rename_scaffolds:
 
 			#run on idba_ud bins
 				if [[ -f {input.bin_dir_idba} ]] && [[ ! -f {input.bin_dir_megahit} ]]; then
-				    for file in {input.bin_dir_megahit}/*.fa  
+				    for file in {input.bin_dir_idba}/*.fa  
 				    do
 			        fname="${file##*/}"
 			        awk '/>/{sub(">","&"FILENAME"_");sub(/\.fa/,x)}1' "$file" > $fname
-			        touch {output.output_file_megahit}
+			        touch {output.output_file_idba}
 						done
 				fi
 				
-
-
 			"""
-			
-			
-			#make .out files
-			shell("touch {output.output_file_megahit} {output.output_file_idba}")
-
-		if assembly_type == "megahit":
-			#run on megahit bins
-			
-			#make .out file
-			
-
-		if assembly_type == "idba":
-			#run on idba_ud bins
-			
-			#make .out files
-			shell("touch {output.output_file_idba}")
+		
 
 rule MQHQ_bins:
 	input:
