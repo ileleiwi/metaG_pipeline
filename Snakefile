@@ -26,8 +26,8 @@ rule qc:
 	output:
 		read_I="qc/{sample}_I_qc.fastq.gz"
 	threads: 20
-	shell:
-		"bbduk.sh -Xmx100G threads={threads} overwrite=t ktrim=r k=23 mink=11 hdist=1 qtrim=rl trimq=20 minlen=75 maq=10 in1={input.read_1} in2={input.read_2} ref={input.adapters} out={output.read_I}"
+	run:
+		shell("bbduk.sh -Xmx100G threads={threads} overwrite=t ktrim=r k=23 mink=11 hdist=1 qtrim=rl trimq=20 minlen=75 maq=10 in1={input.read_1} in2={input.read_2} ref={input.adapters} out={output.read_I}")
 
 rule nomouse:
 	input:
@@ -36,8 +36,8 @@ rule nomouse:
 	output:
 		read_nomouse="nomouse/{sample}_I_qc_nomouse.fastq.gz"
 	threads: 20
-	shell:
-		"bbduk.sh -Xmx200G threads={threads} ref={input.mouse_genome} in={input.read} out={output.read_nomouse}"
+	run:
+		shell("bbduk.sh -Xmx200G threads={threads} ref={input.mouse_genome} in={input.read} out={output.read_nomouse}")
 
 
 rule fastas_samples:
