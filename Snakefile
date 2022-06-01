@@ -6,10 +6,6 @@ rawfiles = os.listdir("RawData_renamed")
 R1_files = [x for x in rawfiles if "R1" in x]
 SAMPLES = [x.replace("_R1.fastq.gz", "") for x in R1_files]
 
-#create rule all paths variables
-PATHS_megahit = [f"Assemblies/{x}/Megahit/checkM/scaffold_2500.fa.metabat-bins/checkM/" for x in SAMPLES]
-PATHS_idba = [f"Assemblies/{x}/IDBA_UD/checkM/scaffold_2500.fa.metabat-bins/checkM/" for x in SAMPLES]
-
 
 rule all:
   input:
