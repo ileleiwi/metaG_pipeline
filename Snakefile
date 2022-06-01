@@ -1,5 +1,4 @@
 import os.path
-import pandas as pd
 
 
 #create rule all sample variable
@@ -26,6 +25,9 @@ rule qc:
 	output:
 		read_I="qc/{sample}_I_qc.fastq.gz"
 	threads: 20
+	resources:
+		mem_mb=100000,
+		time='14-00:00:00'
 	run:
 		shell("bbduk.sh -Xmx100G threads={threads} overwrite=t ktrim=r k=23 mink=11 hdist=1 qtrim=rl trimq=20 minlen=75 maq=10 in1={input.read_1} in2={input.read_2} ref={input.adapters} out={output.read_I}")
 
@@ -36,8 +38,11 @@ rule nomouse:
 	output:
 		read_nomouse="nomouse/{sample}_I_qc_nomouse.fastq.gz"
 	threads: 20
+	resources:
+		mem_mb=100000,
+		time='14-00:00:00'
 	run:
-		shell("bbduk.sh -Xmx200G threads={threads} ref={input.mouse_genome} in={input.read} out={output.read_nomouse}")
+		shell("bbduk.sh -Xmx100G threads={threads} ref={input.mouse_genome} in={input.read} out={output.read_nomouse}")
 
 
 rule fastas_samples:
@@ -45,6 +50,7 @@ rule fastas_samples:
 		read=rules.nomouse.output.read_nomouse
 	output:
 		fasta="fastas/{sample}_I_qc_nomouse.fa"
+	threads: 5
 	run:
 		shell("reformat.sh in={input.read} out={output.fasta}")
 	
@@ -59,14 +65,18 @@ rule assemble_samples:
 		output_megahit="Assemblies/{sample}/Megahit/",
 		output_idba="Assemblies/{sample}/IDBA_UD/"		
 	threads: 20
+	resources:
+		mem_mb=200000,
+		time='14-00:00:00'
 	run:
 		#run megahit
-		shell("megahit -t {threads} --12 {input.fasta} -o {params.output_megahit} --out-prefix {sample} --force")
-		shell("pullseq.py -i {params.output_megahit}{sample}.contigs.fa -o {output.scaff2500_megahit} -m 2500")
+		shell("megahit -t {threads} --12 {input.fasta} -o {params.output_megahit} --out-prefix {wildcards.sample} --force")
+		shell("pullseq.py -i {params.output_megahit}{wildcards.sample}.contigs.fa -o {output.scaff2500_megahit} -m 2500")
+
 		#run idba_ud
 		shell("idba_ud --num_threads {threads} -r {input.fasta} -o {params.output_idba}")
-		shell("mv {params.output_idba}scaffold.fa {params.output_idba}{sample}.scaffold.fa")
-		shell("pullseq.py -i {params.output_idba}{sample}.scaffold.fa -o {output.scaff2500_idba} -m 2500")
+		shell("mv {params.output_idba}/scaffold.fa {params.output_idba}{wildcards.sample}.scaffold.fa")
+		shell("pullseq.py -i {params.output_idba}{wildcards.sample}.scaffold.fa -o {output.scaff2500_idba} -m 2500")
 		
 
 
@@ -82,17 +92,20 @@ rule sortedbam_samples:
 		output_megahit="Assemblies/{sample}/Megahit/",
 		output_idba="Assemblies/{sample}/IDBA_UD/"
 	threads: 20
+	resources:
+		mem_mb=200000,
+		time='14-00:00:00'
 	run:
 		#run megahit
-		shell("bbmap.sh -Xmx200G threads={threads} in={input.reads} minid=97 ref={input.scaff2500_megahit} out={params.output_megahit}{sample}_mapped_97.sam")
-		shell("samtools view -@ {threads} -bS {params.output_megahit}{sample}_mapped_97.sam > {params.output_megahit}{sample}_mapped_97.bam")
-		shell("samtools sort -@ {threads} -T {sample}_megahit_mapped.sorted -o {output.mapped_bam_megahit} {params.output_megahit}{sample}_mapped_97.bam")
-		shell("rm {params.output_megahit}{sample}_mapped_97.bam {params.output_megahit}{sample}_mapped_97.sam")
+		shell("bbmap.sh -Xmx200G threads={threads} in={input.reads} minid=97 ref={input.scaff2500_megahit} out={params.output_megahit}{wildcards.sample}_mapped_97.sam")
+		shell("samtools view -@ {threads} -bS {params.output_megahit}{wildcards.sample}_mapped_97.sam > {params.output_megahit}{wildcards.sample}_mapped_97.bam")
+		shell("samtools sort -@ {threads} -T {wildcards.sample}_megahit_mapped.sorted -o {output.mapped_bam_megahit} {params.output_megahit}{wildcards.sample}_mapped_97.bam")
+		shell("rm {params.output_megahit}{wildcards.sample}_mapped_97.bam {params.output_megahit}{wildcards.sample}_mapped_97.sam")
 		#run idba_ud
-		shell("bbmap.sh -Xmx200G threads={threads} in={input.reads} minid=97 ref={input.scaff2500_idba} out={params.output_idba}{sample}_mapped_97.sam")
-		shell("samtools view -@ {threads} -bS {params.output_idba}{sample}_mapped_97.sam > {params.output_idba}{sample}_mapped_97.bam")
-		shell("samtools sort -@ {threads} -T {sample}_idba_mapped.sorted -o {output.mapped_bam_idba} {params.output_idba}{sample}_mapped_97.bam")
-		shell("rm {params.output_idba}{sample}_mapped_97.bam {params.output_idba}{sample}_mapped_97.sam")
+		shell("bbmap.sh -Xmx200G threads={threads} in={input.reads} minid=97 ref={input.scaff2500_idba} out={params.output_idba}{wildcards.sample}_mapped_97.sam")
+		shell("samtools view -@ {threads} -bS {params.output_idba}{wildcards.sample}_mapped_97.sam > {params.output_idba}{wildcards.sample}_mapped_97.bam")
+		shell("samtools sort -@ {threads} -T {wildcards.sample}_idba_mapped.sorted -o {output.mapped_bam_idba} {params.output_idba}{wildcards.sample}_mapped_97.bam")
+		shell("rm {params.output_idba}{wildcards.sample}_mapped_97.bam {params.output_idba}{wildcards.sample}_mapped_97.sam")
 	
 
 rule bin_samples:
@@ -104,6 +117,10 @@ rule bin_samples:
 	output:
 		bin_dir_megahit="Assemblies/{sample}/Megahit/{sample}_scaffold_2500.fa.metabat-bins",
 		bin_dir_idba="Assemblies/{sample}/IDBA_UD/{sample}_scaffold_2500.fa.metabat-bins"
+	threads: 20
+	resources:
+		mem_mb=200000,
+		time='14-00:00:00'
 	run:
 		#run megahit
 		shell("runMetaBat.sh {input.scaff2500_megahit} {input.bam_megahit}")
@@ -122,6 +139,9 @@ rule checkM:
 		checkm_output_megahit="Assemblies/{sample}/Megahit/checkM/scaffold_2500.fa.metabat-bins/checkM/megahit_{sample}_analyze_bins.txt",
 		checkm_output_idba="Assemblies/{sample}/IDBA_UD/checkM/scaffold_2500.fa.metabat-bins/checkM/idba_{sample}_analyze_bins.txt"
 	threads: 20
+	resources:
+		mem_mb=200000,
+		time='14-00:00:00'
 	run:
 		#run megahit
 		shell("checkm lineage_wf {input.bin_dir_megahit} {params.checkM_dir_megahit} -t {threads}  -x fa --tab_table")

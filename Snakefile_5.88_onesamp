@@ -1,0 +1,124 @@
+import os.path
+
+
+#create rule all sample variable
+rawfiles = os.listdir("RawData_renamed")
+R1_files = [x for x in rawfiles if "R1" in x]
+SAMPLES = [x.replace("_R1.fastq.gz", "") for x in R1_files]
+
+#create rule all paths variables
+PATHS_megahit = [f"Assemblies/{x}/Megahit/checkM/scaffold_2500.fa.metabat-bins/checkM/" for x in SAMPLES]
+
+
+rule all:
+  input:
+     expand("Assemblies/{sample}/Megahit/checkM/megahit_{sample}_analyze_bins.txt", sample=SAMPLES),
+     
+     
+rule qc:
+	input:
+		read_1="RawData_renamed/{sample}_R1.fastq.gz",
+		read_2="RawData_renamed/{sample}_R2.fastq.gz",
+		adapters="/home/ileleiwi/miniconda3/envs/metagenomics/opt/bbmap-38.79-0/resources/adapters.fa"
+	output:
+		read_I="qc/{sample}_I_qc.fastq.gz"
+	threads: 20
+	resources:
+		mem=100000,
+		time='14-00:00:00'
+	run:
+		shell("bbduk.sh -Xmx100G threads={threads} overwrite=t ktrim=r k=23 mink=11 hdist=1 qtrim=rl trimq=20 minlen=75 maq=10 in1={input.read_1} in2={input.read_2} ref={input.adapters} out={output.read_I}")
+
+rule nomouse:
+	input:
+		read=rules.qc.output.read_I,
+		mouse_genome="/home/projects-wrighton/NIH_Salmonella/KaiMetaG_20200327/mouse_masked.fa"
+	output:
+		read_nomouse="nomouse/{sample}_I_qc_nomouse.fastq.gz"
+	threads: 20
+	resources:
+		mem=100000,
+		time='14-00:00:00'
+	run:
+		shell("bbduk.sh -Xmx200G threads={threads} ref={input.mouse_genome} in={input.read} out={output.read_nomouse}")
+
+
+rule fastas_samples:
+	input:
+		read=rules.nomouse.output.read_nomouse
+	output:
+		fasta="fastas/{sample}_I_qc_nomouse.fa"
+	threads: 5
+	run:
+		shell("reformat.sh in={input.read} out={output.fasta}")
+	
+
+rule assemble_samples:
+	input:
+		fasta=rules.fastas_samples.output.fasta
+	output:
+		scaff2500_megahit="Assemblies/{sample}/Megahit/{sample}_scaffold_2500.fa"
+	params:
+		output_megahit="Assemblies/{sample}/Megahit/"
+	threads: 20
+	resources:
+		mem=200000,
+		time='14-00:00:00'
+	run:
+		#run megahit
+		shell("megahit -t {threads} --12 {input.fasta} -o {params.output_megahit} --out-prefix {wildcards.sample} --force")
+		shell("pullseq.py -i {params.output_megahit}{wildcards.sample}.contigs.fa -o {output.scaff2500_megahit} -m 2500")
+		
+
+
+rule sortedbam_samples:
+	input:
+		scaff2500_megahit=rules.assemble_samples.output.scaff2500_megahit,
+		reads=rules.nomouse.output.read_nomouse
+	output:
+		mapped_bam_megahit="Assemblies/{sample}/Megahit/{sample}_megahit_mapped.bam"
+	params:
+		output_megahit="Assemblies/{sample}/Megahit/"
+	threads: 20
+	resources:
+		mem=200000,
+		time='14-00:00:00'
+	run:
+		#run megahit
+		shell("bbmap.sh -Xmx200G threads={threads} in={input.reads} minid=97 ref={input.scaff2500_megahit} out={params.output_megahit}{wildcards.sample}_mapped_97.sam")
+		shell("samtools view -@ {threads} -bS {params.output_megahit}{wildcards.sample}_mapped_97.sam > {params.output_megahit}{wildcards.sample}_mapped_97.bam")
+		shell("samtools sort -@ {threads} -T {wildcards.sample}_megahit_mapped.sorted -o {output.mapped_bam_megahit} {params.output_megahit}{wildcards.sample}_mapped_97.bam")
+		shell("rm {params.output_megahit}{wildcards.sample}_mapped_97.bam {params.output_megahit}{wildcards.sample}_mapped_97.sam")
+			
+
+rule bin_samples:
+	input:
+		scaff2500_megahit=rules.assemble_samples.output.scaff2500_megahit,
+		bam_megahit=rules.sortedbam_samples.output.mapped_bam_megahit
+	output:
+		bin_dir_megahit="{sample}_scaffold_2500.fa.metabat-bins"
+	threads: 20
+	resources:
+		mem=200000,
+		time='14-00:00:00'
+	run:
+		#run megahit
+		shell("runMetaBat.sh {input.scaff2500_megahit} {input.bam_megahit}")
+		
+		
+rule checkM:
+	input:
+		bin_dir_megahit=rules.bin_samples.output.bin_dir_megahit
+	params:
+		checkM_dir_megahit="Assemblies/{sample}/Megahit/checkM"
+	output:
+		checkm_output_megahit="Assemblies/{sample}/Megahit/checkM/megahit_{sample}_analyze_bins.txt"
+	threads: 20
+	resources:
+		mem=200000,
+		time='14-00:00:00'
+	run:
+		#run megahit
+		shell("checkm lineage_wf {input.bin_dir_megahit} {params.checkM_dir_megahit} -t {threads}  -x fa --tab_table")
+		shell("checkm qa {params.checkM_dir_megahit}/lineage.ms {params.checkM_dir_megahit} -o 1 -f {output.checkm_output_megahit} --tab_table")
+		
