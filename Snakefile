@@ -6,7 +6,20 @@ rawfiles = os.listdir("RawData_renamed")
 R1_files = [x for x in rawfiles if "R1" in x]
 SAMPLES = [x.replace("_R1.fastq.gz", "") for x in R1_files]
 
-
+##TODO
+#add mapping
+#add subtractive assembly
+#add number of bases in raw reads
+#copy all bins to one dir
+#copy MQHQ bins to one dir
+#rename scaffolds - add bin name to scaffold headers
+#run gtdb
+#add DRAM
+#add longest contig
+#add length of longest contig
+#add number of genes
+#create binstats summary dashboard
+#
 rule all:
   input:
      expand("Assemblies/{sample}/Megahit/checkM/scaffold_2500.fa.metabat-bins/checkM/megahit_{sample}_analyze_bins.txt", sample=SAMPLES),
