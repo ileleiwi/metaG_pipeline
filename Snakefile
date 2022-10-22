@@ -18,6 +18,7 @@ SAMPLES = [x.replace("_R1.fastq.gz", "") for x in R1_files]
 #add longest contig
 #add length of longest contig
 #add number of genes
+#add tool versions
 #create binstats summary dashboard
 #
 rule all:

@@ -7,4 +7,4 @@ __default__:
     mail-user: "ileleiwi@colostate.edu"
     mem: "200gb"
     job-name: snakemake_bin_wkflw
-    output: "logs_slurm/{rule}.{wildcards}.out" #-e and -o flag 
+    output: "./logs_slurm/{rule}.{wildcards}.out" #-e and -o flag
